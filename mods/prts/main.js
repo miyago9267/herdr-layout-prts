@@ -138,11 +138,46 @@ function toggleNav() {
   globalThis.__prtsNav = openOverlay({ mod: "prts", kind: "popup", frame: "none", width: 1, height: NAV_H, at: { x: 0, y: BAR }, props: { role: "navpop" } });
 }
 
-// Key commands ("prts.<name>" in keys.json): toggle, nav, home, term, squads, roster, missions, base.
+// Boot splash ("connecting to the Terra neural network") and the MISSION ACCOMPLISHED banner.
+// Both are `window` overlays: no dimming and they never take the keyboard, so typing goes on underneath.
+const MISSION_Y = 150, MISSION_H = 230;
+const BOOT_LINES = [
+  ["LINK", "PRTS 終端協議握手"],
+  ["AUTH", "身分驗證：博士"],
+  ["SYNC", "同步羅德島本艦資料"],
+  ["DONE", "泰拉神經網路已連接"],
+];
+function openBoot() {
+  globalThis.__prtsBooted = true;
+  openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 1, at: { x: 0, y: 0 }, props: { role: "boot" } });
+}
+function openMission(a) {
+  const old = globalThis.__prtsMission;
+  if (old) { try { closeOverlay(old); } catch (_e) { /* already closed */ } }
+  globalThis.__prtsMission = openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: MISSION_H,
+    at: { x: 0, y: MISSION_Y }, props: { role: "mission", pane: a.pane, space: a.space_name || a.tab_name || "-", title: a.title || "" } });
+}
+// Fires the banner when an agent turns "done" (finished while you weren't looking). Called from render;
+// the status map lives on globalThis so the HOME and TERMINAL copies share it and fire once.
+function watchDone() {
+  const prev = globalThis.__prtsSeen;
+  const now = {};
+  let hit = null;
+  for (const a of agents()) {
+    now[a.address] = a.status;
+    if (prev && a.status === "done" && prev[a.address] && prev[a.address] !== "done" && !hit) hit = a;
+  }
+  globalThis.__prtsSeen = now;
+  if (hit) openMission(hit);
+}
+
+// Key commands ("prts.<name>" in keys.json): toggle, nav, home, term, squads, roster, missions, base, boot, mission (demo).
 function command(c) {
   const jump = { squads: SQUADS, roster: ROSTER, missions: MISSIONS, base: BASE };
   if (c === "toggle") toggle();
   else if (c === "nav") toggleNav();
+  else if (c === "boot") openBoot();
+  else if (c === "mission") openMission({ pane: null, space_name: "DEMO", title: "mission accomplished preview" });
   else if (c === "home" || c === "term") go(c);
   else if (jump[c]) enter(jump[c])();
 }
@@ -189,6 +224,17 @@ export default class Prts extends View {
     const role = props()?.role;
     this.now = new Date();
     this.size = { width: 900, height: 400 };
+    if (role === "boot" || role === "mission") {
+      const close = role === "boot" ? 2900 : 4200;
+      this.phase = 0;
+      this.stage = 0;
+      cx.timer.after(40, (cx) => { this.phase = 1; cx.notify(); });
+      if (role === "boot") cx.timer.every(420, (cx) => { if (this.stage < BOOT_LINES.length) { this.stage += 1; cx.notify(); } });
+      cx.timer.after(close - 500, (cx) => { this.phase = 2; cx.notify(); });
+      cx.timer.after(close, () => this.dismiss());
+      return;
+    }
+    if (role === "nav" && !globalThis.__prtsBooted) openBoot();
     cx.timer.every(60000, (cx) => { this.now = new Date(); cx.notify(); });
     // One listener per screen: the HOME strip and the TERMINAL nav band take the toggle key.
     if (role === "top" || role === "nav") {
@@ -514,9 +560,63 @@ export default class Prts extends View {
         .child(div().flex_none().font_family(ZH).text_size(12).text_color(hot ? RED : "#2e8b46").child(hot ? "需介入" : "已完成")));
   }
 
+  dismiss() {
+    const p = props();
+    if (p?.role === "mission" && globalThis.__prtsMission === p.overlay) globalThis.__prtsMission = null;
+    try { closeOverlay(p.overlay); } catch (_e) { /* already closed */ }
+  }
+
+  // Boot splash: logo, title, staged log lines, a progress bar that fills once, then the whole thing fades.
+  boot() {
+    const on = this.phase >= 1, out = this.phase === 2;
+    const lines = BOOT_LINES.slice(0, this.stage);
+    return v_flex().id("boot").size_full().items_center().justify_center().gap(22).bg("#03060af2").cursor_pointer()
+      .opacity(out ? 0 : 1).transition("opacity", { duration: 450, easing: "ease-in" })
+      .on_click(() => this.dismiss())
+      .child(div().relative().size(120).flex_none()
+        .child(div().absolute().left(0).top(0).size(120).rounded_full().border_1().border_color("#ffffff30").loop("opacity", { from: 0.3, to: 1, period: 1600 }))
+        .child(div().absolute().left(22).top(22).size(76).rounded_full().border_1().border_color(ACCENT + "aa"))
+        .child(svg("mods/prts/diamond.svg").absolute().left(40).top(40).size(40).text_color(WHITE).loop("opacity", { from: 0.5, to: 1, period: 900 })))
+      .child(div().font_family(MONO).text_size(12).text_color("#ffffff70").child("RHODES ISLAND // PRTS"))
+      .child(title(this.stage >= BOOT_LINES.length ? "神經網路連接完成" : "正在連接泰拉神經網路", 30, WHITE, 1))
+      .child(div().relative().w(520).h(3).flex_none().bg("#ffffff1f")
+        .child(div().absolute().left(0).top(0).h(3).w(on ? 520 : 0).bg(ACCENT).transition("width", { duration: 2100, easing: "ease-out" })))
+      .child(v_flex().w(520).h(96).gap(4).font_family(MONO).text_size(12)
+        .children(lines.map(([k, v], i) => h_flex().gap(10)
+          .child(div().w(44).text_color(i === BOOT_LINES.length - 1 ? GREEN : ACCENT).child(k))
+          .child(div().text_color("#ffffffb0").child(v)))));
+  }
+
+  // MISSION ACCOMPLISHED: a dark band across the window with a white wipe, 行動結束 and the agent that finished.
+  mission() {
+    const p = props();
+    const on = this.phase >= 1, out = this.phase === 2;
+    return div().id("mission").size_full().relative().cursor_pointer()
+      .opacity(on && !out ? 1 : 0).transition("opacity", { duration: out ? 450 : 220, easing: "ease-out" })
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click(() => { if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); })
+      .child(div().absolute().left(0).top(20).w_full().h(MISSION_H - 40).bg("#05080ef2").border_t(1).border_b(1).border_color("#ffffff30"))
+      .child(div().absolute().left(0).top(20).h(MISSION_H - 40).w(on ? 3000 : 0).bg("#ffffff0d").transition("width", { duration: 700, easing: "ease-out" }))
+      .child(div().absolute().left(0).top(MISSION_H - 26).h(4).w(on ? 3000 : 0).bg(ORANGE).transition("width", { duration: 900, easing: "ease-out" }))
+      .child(h_flex().absolute().left(0).top(20).w_full().h(MISSION_H - 40).items_center().justify_center().gap(36)
+        .child(h_flex().gap(8).children([0, 1, 2].map((i) =>
+          svg("mods/prts/diamond.svg").size(30).text_color(GOLD).loop("opacity", { from: 0.55, to: 1, period: 1400 + i * 200 }))))
+        .child(v_flex().gap(8)
+          .child(title("行動結束", 58, WHITE, 1))
+          .child(div().font_family(MONO).text_size(18).text_color(ORANGE).child("MISSION  ACCOMPLISHED")))
+        .child(v_flex().w(300).gap(6).pl(24).border_l(1).border_color("#ffffff40")
+          .child(div().font_family(ZH).text_size(20).text_color(WHITE).truncate().child(p.space))
+          .child(div().font_family(MONO).text_size(12).text_color("#ffffff90").truncate().child(p.title))
+          .child(div().font_family(MONO).text_size(11).text_color("#ffffff55").child(p.pane ? "CLICK TO OPEN" : "PREVIEW"))));
+  }
+
   render() {
     const t = theme();
-    switch (props()?.role) {
+    const role = props()?.role;
+    if (role === "top" || role === "nav") watchDone();
+    switch (role) {
+      case "boot": return this.boot();
+      case "mission": return this.mission();
       case "hero": return this.hero(t);
       case "menu": return this.menu();
       case "voice": return this.voice();

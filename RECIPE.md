@@ -30,12 +30,15 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 - `cmd-.` toggles HOME / TERMINAL. `cmd-;` or the house button opens the node map; Esc, a click outside, or picking a node closes it.
 - Tiles and nodes: 終端 → TERMINAL; 編隊 → spaces drawer; 幹員 → agents drawer (grouped); 調度 / 任務 → agents drawer (priority sort); 基建 → Changes panel; 倉庫 → terminal picker; 首頁 → HOME. The node for whatever is open gets a blue ring.
 - Back arrow closes the open drawer or panel, else goes HOME.
-- Motion is native `.loop` only: halftone dots, drifting particles, breathing status dots and rings. The only timer is the clock, once a minute.
+- Launch: a full-window splash fades in over the TERMINAL screen: pulsing rings and a diamond, 正在連接泰拉神經網路, a 520px accent bar that fills in 2.1s, and four log lines (LINK / AUTH / SYNC / DONE) appearing 420ms apart; it fades out at 2.9s. Once per app run; click skips it.
+- When an agent turns `done` (finished while you weren't looking), a 230px band crosses the window 150px from the top: three gold diamonds, 行動結束 (58px), MISSION ACCOMPLISHED in orange mono, and the agent's space and title; a white wipe and an orange line slide in. It fades at 3.7s; a click focuses that agent.
+- Neither takes the keyboard (they are `window` overlays), so typing continues underneath.
+- Motion is native `.loop` / `.transition`: halftone dots, drifting particles, breathing status dots and rings. The only timer is the clock, once a minute.
 
 ## Built from
 
 - `layouts/prts.json`: root column (theme `prts`, no title bar, traffic lights at 14,12) → `art` column (background image) → two siblings `home` and `term`. Switching screens is `layout.show` / `layout.hide` on them, so terminals and mod copies stay alive. `term` = `nav` block + `work-body` row (`drawer` stack of `d-spaces` / `d-agents`, `console` column with `tabs` and `main` tab block, `panel` stack of `files` / `changes`), floating `lastop`.
-- `mods/prts`: one mod, drawn by `props().role`: `top`, `hero`, `menu`, `voice`, `spacer`, `footer`, `nav`, `navpop`, `lastop`. The node map is `openOverlay({kind: "popup", frame: "none", width: 1, height: 300, at: {x: 0, y: 48}, props: {role: "navpop"}})`. Commands for `keys.json`: `prts.toggle`, `prts.nav`, `prts.home`, `prts.term`, `prts.squads`, `prts.roster`, `prts.missions`, `prts.base`.
+- `mods/prts`: one mod, drawn by `props().role`: `top`, `hero`, `menu`, `voice`, `spacer`, `footer`, `nav`, `navpop`, `lastop`. The node map is `openOverlay({kind: "popup", frame: "none", width: 1, height: 300, at: {x: 0, y: 48}, props: {role: "navpop"}})`. Commands for `keys.json`: `prts.toggle`, `prts.nav`, `prts.home`, `prts.term`, `prts.squads`, `prts.roster`, `prts.missions`, `prts.base`, `prts.boot` (replay the splash), `prts.mission` (preview the banner). Roles `boot` and `mission` are `openOverlay({kind: "window", frame: "none"})`; the `nav` copy opens `boot` from `init` once (flag on `globalThis`), and `top` / `nav` call a status watcher from `render` that keeps the last status per agent address on `globalThis`, so the two screens fire one banner.
 - `mods/prts-spaces`, `mods/prts-agents`: clones of the shipped `spaces` and `agents` mods, restyled for the drawer.
 - Shipped mods used as is: `tabs`, `pane`, `files`, `changes`, `picker`.
 - `herdr` API: `spaces`, `agents`, `panes`, `terminals`, `layout`, `shared` / `setShared` (`agents.sort`), `run`, `openOverlay` / `closeOverlay`, `nextCommand`.
@@ -49,6 +52,7 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 - Herdr caches a background by path while it runs: after adding or replacing the file, restart Herdr or rename the file and the path.
 - 幹員 / 任務 set the shared `agents.sort`, which the shipped `agents` mod also reads.
 - `label.js` is duplicated in both list mods because mods cannot import across folders.
+- If you install by symlinking the mod folders, Herdr does not hot-reload them: switch layouts (or restart) after editing.
 - The HOME right column is a fixed 734px; very narrow windows clip the tiles.
 
 ## Done when
@@ -57,4 +61,5 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 - `herdr-app do layout.switch '{"name":"prts"}'` shows the TERMINAL screen with a working terminal.
 - `cmd-.` flips to HOME and back; the tiles show real counts of spaces, agents and terminals.
 - `cmd-;` opens the node map; clicking 編隊 opens the spaces drawer with a blue ring on its node.
+- `herdr-app do prts.boot` and `herdr-app do prts.mission` show the splash and the banner, and typing in the terminal still works while they are up.
 - An agent that reports `blocked` makes the diamonds blink and the floating card appear.

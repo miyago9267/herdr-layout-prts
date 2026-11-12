@@ -8,6 +8,8 @@ A two-screen [Herdr](https://herdr.dev) layout inspired by the operator terminal
 |---|---|
 | ![TERMINAL](screenshots/terminal.png) | ![Node map](screenshots/node-map.png) |
 
+Also: a "connecting to the Terra neural network" splash at launch, and a 行動結束 / MISSION ACCOMPLISHED banner when an agent finishes while you are away (`herdr-app do prts.mission` to preview).
+
 ## Install
 
 ```sh
