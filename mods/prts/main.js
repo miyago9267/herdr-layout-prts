@@ -148,7 +148,7 @@ function toggleNav() {
 
 // Boot splash ("connecting to the Terra neural network") and the MISSION ACCOMPLISHED banner.
 // Both are `window` overlays: no dimming and they never take the keyboard, so typing goes on underneath.
-const MISSION_Y = 130, MISSION_H = 320, BAND_H = 210;
+const MISSION_H = 320, BAND_H = 210;
 const BOOT_MS = 5300;
 const TIPS = ["提示：cmd-; 開啟節點地圖，cmd-. 切換首頁與終端", "提示：幹員回報完成時，會顯示行動結束", "提示：點擊「前往上一次作戰」直接跳到需要你的幹員"];
 const EMBLEM_FILE = "backgrounds/prts-emblem.png";
@@ -159,8 +159,8 @@ function openBoot() {
 function openMission(a) {
   const old = globalThis.__prtsMission;
   if (old) { try { closeOverlay(old); } catch (_e) { /* already closed */ } }
-  globalThis.__prtsMission = openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: MISSION_H,
-    at: { x: 0, y: MISSION_Y }, props: { role: "mission", pane: a.pane, space: a.space_name || a.tab_name || "-", title: a.title || "" } });
+  globalThis.__prtsMission = openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 1,
+    at: { x: 0, y: 0 }, props: { role: "mission", pane: a.pane, space: a.space_name || a.tab_name || "-", title: a.title || "" } });
 }
 // Fires the banner when an agent turns "done" (finished while you weren't looking). Called from render;
 // the status map lives on globalThis so the HOME and TERMINAL copies share it and fire once.
@@ -667,10 +667,12 @@ export default class Prts extends View {
       .when(left, (el) => el.left(0).border_l(3)).when(!left, (el) => el.right(0).border_r(3))
       .when(top, (el) => el.top(0).border_t(3)).when(!top, (el) => el.bottom(0).border_b(3)).border_color(WHITE);
     const word = (text, size) => div().font_family(HEAVY).font_extrabold().text_size(size).line_height(1.0).text_color(WHITE).child(text);
-    return div().id("mission").size_full().relative().cursor_pointer()
+    // The window covers the whole app so the band sits at its vertical centre; a click anywhere dismisses it.
+    return v_flex().id("mission-shade").size_full().justify_center()
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => this.dismiss())
+      .child(div().id("mission").w_full().h(MISSION_H).flex_none().relative().cursor_pointer()
       .opacity(out ? 0 : 1).transition("opacity", { duration: 450, easing: "ease-in" })
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .on_click(() => { if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); })
+      .on_click((_e, cx) => { cx.stop_propagation(); if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); })
       .child(div().absolute().left(0).w_full().bg("#0b0c0ee0").border_t(1).border_b(1).border_color("#ffffff22")
         .top(on ? mid - BAND_H / 2 : mid).h(on ? BAND_H : 0)
         .transition("top", { duration: 280, easing: "ease-out" }).transition("height", { duration: 280, easing: "ease-out" }))
@@ -682,7 +684,7 @@ export default class Prts extends View {
           .child(v_flex().child(word("MISSION", 112)).child(word("ACCOMPLISHED", 78)))))
       .child(div().absolute().right(28).top(mid + BAND_H / 2 - 24).font_family(MONO).text_size(11).text_color("#ffffff88")
         .opacity(on ? 1 : 0).transition("opacity", { duration: 300, delay: 400 })
-        .child(`${p.space}${p.title ? " · " + p.title : ""}${p.pane ? " · CLICK TO OPEN" : ""}`));
+        .child(`${p.space}${p.title ? " · " + p.title : ""}${p.pane ? " · CLICK TO OPEN" : ""}`)));
   }
 
   render() {
