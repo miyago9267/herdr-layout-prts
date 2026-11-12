@@ -30,8 +30,8 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 - `cmd-.` toggles HOME / TERMINAL. `cmd-;` or the house button opens the node map; Esc, a click outside, or picking a node closes it.
 - Tiles and nodes: 終端 → TERMINAL; 編隊 → spaces drawer; 幹員 → agents drawer (grouped); 調度 / 任務 → agents drawer (priority sort); 基建 → Changes panel; 倉庫 → terminal picker; 首頁 → HOME. The node for whatever is open gets a blue ring.
 - Back arrow closes the open drawer or panel, else goes HOME.
-- Launch: a full-window splash fades in over the TERMINAL screen: pulsing rings and a diamond, 正在連接泰拉神經網路, a 520px accent bar that fills in 2.1s, and four log lines (LINK / AUTH / SYNC / DONE) appearing 420ms apart; it fades out at 2.9s. Once per app run; click skips it.
-- When an agent turns `done` (finished while you weren't looking), a 230px band crosses the window 150px from the top: three gold diamonds, 行動結束 (58px), MISSION ACCOMPLISHED in orange mono, and the agent's space and title; a white wipe and an orange line slide in. It fades at 3.7s; a click focuses that agent.
+- Launch (about 5.3s, once per app run, click skips): a full-window dark screen `#141619` with a 64px footer strip. First a yellow (`#e8c21a`) wireframe geodesic sphere, 440px, turning slowly, around a 130x200 outlined card (服務器 / 泰拉 / #0), caption 正在嘗試與 Rhodes Island 取得神經連接, while a 2px yellow line grows from the left edge to the sphere over 3s with a percent counter. At 3.3s it cross-fades to the emblem (300px) on a thin horizontal rule with a 5x4 dot grid to its right and a random usage tip near the bottom; it fades out from 4.8s.
+- When an agent turns `done` (finished while you weren't looking), a 320px window 130px from the top: a translucent band (`#0b0c0ee0`, 210px) opens from the middle in 280ms; the emblem (330px) sits left of centre and breaks out of the band; MISSION (112px) / ACCOMPLISHED (78px) in Avenir Next heavy, white, inside four 3px corner brackets on the right; the agent's space and title in 11px mono at the band's bottom-right. It fades at 3.9s; a click focuses that agent.
 - Neither takes the keyboard (they are `window` overlays), so typing continues underneath.
 - Motion is native `.loop` / `.transition`: halftone dots, drifting particles, breathing status dots and rings. The only timer is the clock, once a minute.
 
@@ -42,11 +42,14 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 - `mods/prts-spaces`, `mods/prts-agents`: clones of the shipped `spaces` and `agents` mods, restyled for the drawer.
 - Shipped mods used as is: `tabs`, `pane`, `files`, `changes`, `picker`.
 - `herdr` API: `spaces`, `agents`, `panes`, `terminals`, `layout`, `shared` / `setShared` (`agents.sort`), `run`, `openOverlay` / `closeOverlay`, `nextCommand`.
+- Emblem: `mods/prts/emblem.svg`, an original triangle with a diamond mark and a PRTS wordmark. If `backgrounds/prts-emblem.png` exists in the Herdr home (checked with `fs.stat` when the splash or banner opens), that image is used instead, so a person can supply their own emblem locally without it being part of the layout.
+- `mods/prts/geo.svg`: the wireframe sphere, generated (subdivided icosahedron, depth-shaded edges).
 - Art: SVG masks in `mods/prts` (line-art icons, grain, stripes, dots, node circles), all drawn for this layout. No game assets.
 - `themes/prts.json`: dark panels, One Dark ANSI colors, accent `#4fc3f7`.
 
 ## Watch out
 
+- MISSION ACCOMPLISHED uses Avenir Next (macOS); set `HEAVY` elsewhere.
 - Titles use Hiragino Sans W8, a macOS system font. On other systems set `ZH` at the top of `mods/prts/main.js` to an installed heavy CJK face, or titles fall back.
 - Herdr shows only the first frame of animated images, and video is not supported as a background. Put a still at `backgrounds/prts-operator.jpg` (16:10, 2400x1500 or larger, subject left of centre; the right 27% sits under the tiles). Without it the gradient shows.
 - Herdr caches a background by path while it runs: after adding or replacing the file, restart Herdr or rename the file and the path.

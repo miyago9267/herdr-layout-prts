@@ -13,11 +13,13 @@
 // Hard corners, flat fills, no blur shadows: depth is a darker backing slab that a hovered tile slides off.
 // Line art, grain, stripes and badge shapes are SVG masks in this folder; fonts are installed ones only.
 
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay } from "herdr";
+import * as fs from "fs/promises";
+import { appHome, spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay } from "herdr";
 
 const MONO = "Geist Mono";
+const HEAVY = "Avenir Next"; // macOS system face; heavy Latin for MISSION ACCOMPLISHED
 const NUM = "Geist";
 const ZH = "Hiragino Sans W8"; // heavy installed CJK face with full Traditional coverage (macOS system font)
 const WHITE = "#f4f7fa";
@@ -140,13 +142,10 @@ function toggleNav() {
 
 // Boot splash ("connecting to the Terra neural network") and the MISSION ACCOMPLISHED banner.
 // Both are `window` overlays: no dimming and they never take the keyboard, so typing goes on underneath.
-const MISSION_Y = 150, MISSION_H = 230;
-const BOOT_LINES = [
-  ["LINK", "PRTS 終端協議握手"],
-  ["AUTH", "身分驗證：博士"],
-  ["SYNC", "同步羅德島本艦資料"],
-  ["DONE", "泰拉神經網路已連接"],
-];
+const MISSION_Y = 130, MISSION_H = 320, BAND_H = 210;
+const BOOT_MS = 5300;
+const TIPS = ["提示：cmd-; 開啟節點地圖，cmd-. 切換首頁與終端", "提示：幹員回報完成時，會顯示行動結束", "提示：點擊「前往上一次作戰」直接跳到需要你的幹員"];
+const EMBLEM_FILE = "backgrounds/prts-emblem.png";
 function openBoot() {
   globalThis.__prtsBooted = true;
   openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 1, at: { x: 0, y: 0 }, props: { role: "boot" } });
@@ -225,11 +224,17 @@ export default class Prts extends View {
     this.now = new Date();
     this.size = { width: 900, height: 400 };
     if (role === "boot" || role === "mission") {
-      const close = role === "boot" ? 2900 : 4200;
+      const close = role === "boot" ? BOOT_MS : 4400;
       this.phase = 0;
-      this.stage = 0;
+      this.pct = 0;
+      this.scene = 1;
+      this.tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+      cx.spawn(async (cx) => { try { await fs.stat(`${appHome()}/${EMBLEM_FILE}`); globalThis.__prtsEmblem = true; cx.notify(); } catch (_e) { /* no local emblem */ } });
       cx.timer.after(40, (cx) => { this.phase = 1; cx.notify(); });
-      if (role === "boot") cx.timer.every(420, (cx) => { if (this.stage < BOOT_LINES.length) { this.stage += 1; cx.notify(); } });
+      if (role === "boot") {
+        cx.timer.every(90, (cx) => { if (this.pct < 100) { this.pct = Math.min(100, this.pct + 3); cx.notify(); } });
+        cx.timer.after(3300, (cx) => { this.scene = 2; cx.notify(); });
+      }
       cx.timer.after(close - 500, (cx) => { this.phase = 2; cx.notify(); });
       cx.timer.after(close, () => this.dismiss());
       return;
@@ -566,48 +571,84 @@ export default class Prts extends View {
     try { closeOverlay(p.overlay); } catch (_e) { /* already closed */ }
   }
 
-  // Boot splash: logo, title, staged log lines, a progress bar that fills once, then the whole thing fades.
-  boot() {
-    const on = this.phase >= 1, out = this.phase === 2;
-    const lines = BOOT_LINES.slice(0, this.stage);
-    return v_flex().id("boot").size_full().items_center().justify_center().gap(22).bg("#03060af2").cursor_pointer()
-      .opacity(out ? 0 : 1).transition("opacity", { duration: 450, easing: "ease-in" })
-      .on_click(() => this.dismiss())
-      .child(div().relative().size(120).flex_none()
-        .child(div().absolute().left(0).top(0).size(120).rounded_full().border_1().border_color("#ffffff30").loop("opacity", { from: 0.3, to: 1, period: 1600 }))
-        .child(div().absolute().left(22).top(22).size(76).rounded_full().border_1().border_color(ACCENT + "aa"))
-        .child(svg("mods/prts/diamond.svg").absolute().left(40).top(40).size(40).text_color(WHITE).loop("opacity", { from: 0.5, to: 1, period: 900 })))
-      .child(div().font_family(MONO).text_size(12).text_color("#ffffff70").child("RHODES ISLAND // PRTS"))
-      .child(title(this.stage >= BOOT_LINES.length ? "神經網路連接完成" : "正在連接泰拉神經網路", 30, WHITE, 1))
-      .child(div().relative().w(520).h(3).flex_none().bg("#ffffff1f")
-        .child(div().absolute().left(0).top(0).h(3).w(on ? 520 : 0).bg(ACCENT).transition("width", { duration: 2100, easing: "ease-out" })))
-      .child(v_flex().w(520).h(96).gap(4).font_family(MONO).text_size(12)
-        .children(lines.map(([k, v], i) => h_flex().gap(10)
-          .child(div().w(44).text_color(i === BOOT_LINES.length - 1 ? GREEN : ACCENT).child(k))
-          .child(div().text_color("#ffffffb0").child(v)))));
+  // The emblem: a local image the person supplies (backgrounds/prts-emblem.png), else the bundled original triangle.
+  emblem(w) {
+    const h = Math.round(w * 0.875);
+    if (globalThis.__prtsEmblem) return image(EMBLEM_FILE).w(w).h(h).flex_none();
+    return div().relative().w(w).h(h).flex_none()
+      .child(image("mods/prts/emblem.svg").absolute().left(0).top(0).w(w).h(h))
+      .child(div().absolute().left(0).top(Math.round(h * 0.79)).w(w).flex().justify_center()
+        .child(div().font_family(HEAVY).font_extrabold().text_size(Math.round(w * 0.075)).text_color(WHITE).child("P R T S")));
   }
 
-  // MISSION ACCOMPLISHED: a dark band across the window with a white wipe, 行動結束 and the agent that finished.
+  // Boot, after the game's: a yellow wireframe sphere around the server card while a line grows in from the left,
+  // then the emblem over a crosshair grid, then a fade.
+  boot() {
+    const on = this.phase >= 1, out = this.phase === 2, two = this.scene === 2;
+    const fade = (el, show, ms = 400) => el.opacity(show ? 1 : 0).transition("opacity", { duration: ms, easing: "ease-in-out" });
+    const sphere = fade(v_flex().absolute().left(0).top(0).size_full().items_center().justify_center().gap(34), on && !two)
+      .child(div().relative().size(440).flex_none()
+        .child(svg("mods/prts/geo.svg").absolute().left(0).top(0).size(440).text_color("#e8c21a").spin(60000))
+        .child(div().absolute().left(155).top(120).w(130).h(200).border_1().border_color("#ffffff66").bg("#ffffff0c")
+          .child(v_flex().size_full().items_center().gap(2).child(div().h(24))
+            .child(div().font_family(ZH).text_size(11).text_color("#ffffff99").child("服務器"))
+            .child(div().font_family(ZH).text_size(24).text_color("#ffffffdd").child("泰拉"))
+            .child(h_flex().items_start().mt(10)
+              .child(div().font_family(NUM).text_size(16).text_color("#ffffffaa").child("#"))
+              .child(div().font_family(NUM).text_size(64).text_color("#ffffffee").child("0"))))))
+      .child(div().font_family(ZH).text_size(14).text_color("#ffffffcc").child("正在嘗試與 Rhodes Island 取得神經連接"));
+    const line = fade(h_flex().absolute().left(0).top(0).size_full().items_center(), on && !two)
+      .child(div().relative().flex_1().h(18).overflow_hidden()
+        .child(div().absolute().left(0).top(8).h(2).w(on ? 3000 : 0).bg("#e8c21a").transition("width", { duration: 3000, easing: "ease-in-out" }))
+        .child(div().absolute().right(10).top(-4).font_family(MONO).text_size(11).text_color("#e8c21a").child(`${this.pct}%`)))
+      .child(div().w(460).flex_none())
+      .child(div().flex_1());
+    const dots = v_flex().gap(36).children([0, 1, 2, 3].map(() => h_flex().gap(36).children([0, 1, 2, 3, 4].map(() => div().size(3).bg("#ffffff55")))));
+    const mark = fade(v_flex().absolute().left(0).top(0).size_full().items_center().justify_center(), two, 600)
+      .child(div().absolute().left(0).top(0).size_full().flex().items_center()
+        .child(div().w_full().h(1).bg("#ffffff26")))
+      .child(h_flex().items_center().gap(60)
+        .child(div().w(220).flex_none())
+        .child(this.emblem(300))
+        .child(div().w(220).flex_none().child(dots)))
+      .child(div().absolute().bottom(70).left(0).w_full().flex().justify_center()
+        .child(div().font_family(ZH).text_size(15).text_color("#ffffff88").child(this.tip)));
+    return div().id("boot").size_full().relative().bg("#141619").cursor_pointer()
+      .opacity(out ? 0 : 1).transition("opacity", { duration: 500, easing: "ease-in" })
+      .on_click(() => this.dismiss())
+      .child(sphere).child(line).child(mark)
+      .child(div().absolute().left(0).bottom(0).w_full().h(64).bg("#0b0c0e")
+        .child(h_flex().size_full().px(28).items_center().justify_between().font_family(MONO).text_size(11).text_color("#ffffff66")
+          .child("PRTS // PRIMITIVE RHODES ISLAND TERMINAL SERVICE")
+          .child(`ID:${String(spaces().length).padStart(4, "0")}-${String(agents().length).padStart(4, "0")}`)));
+  }
+
+  // MISSION ACCOMPLISHED, after the game's: a translucent band opens from the middle, the emblem sits on the left
+  // breaking out of it, and MISSION / ACCOMPLISHED in corner brackets on the right.
   mission() {
     const p = props();
     const on = this.phase >= 1, out = this.phase === 2;
+    const mid = Math.round(MISSION_H / 2);
+    const corner = (left, top) => div().absolute().size(26)
+      .when(left, (el) => el.left(0).border_l(3)).when(!left, (el) => el.right(0).border_r(3))
+      .when(top, (el) => el.top(0).border_t(3)).when(!top, (el) => el.bottom(0).border_b(3)).border_color(WHITE);
+    const word = (text, size) => div().font_family(HEAVY).font_extrabold().text_size(size).line_height(1.0).text_color(WHITE).child(text);
     return div().id("mission").size_full().relative().cursor_pointer()
-      .opacity(on && !out ? 1 : 0).transition("opacity", { duration: out ? 450 : 220, easing: "ease-out" })
+      .opacity(out ? 0 : 1).transition("opacity", { duration: 450, easing: "ease-in" })
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(() => { if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); })
-      .child(div().absolute().left(0).top(20).w_full().h(MISSION_H - 40).bg("#05080ef2").border_t(1).border_b(1).border_color("#ffffff30"))
-      .child(div().absolute().left(0).top(20).h(MISSION_H - 40).w(on ? 3000 : 0).bg("#ffffff0d").transition("width", { duration: 700, easing: "ease-out" }))
-      .child(div().absolute().left(0).top(MISSION_H - 26).h(4).w(on ? 3000 : 0).bg(ORANGE).transition("width", { duration: 900, easing: "ease-out" }))
-      .child(h_flex().absolute().left(0).top(20).w_full().h(MISSION_H - 40).items_center().justify_center().gap(36)
-        .child(h_flex().gap(8).children([0, 1, 2].map((i) =>
-          svg("mods/prts/diamond.svg").size(30).text_color(GOLD).loop("opacity", { from: 0.55, to: 1, period: 1400 + i * 200 }))))
-        .child(v_flex().gap(8)
-          .child(title("行動結束", 58, WHITE, 1))
-          .child(div().font_family(MONO).text_size(18).text_color(ORANGE).child("MISSION  ACCOMPLISHED")))
-        .child(v_flex().w(300).gap(6).pl(24).border_l(1).border_color("#ffffff40")
-          .child(div().font_family(ZH).text_size(20).text_color(WHITE).truncate().child(p.space))
-          .child(div().font_family(MONO).text_size(12).text_color("#ffffff90").truncate().child(p.title))
-          .child(div().font_family(MONO).text_size(11).text_color("#ffffff55").child(p.pane ? "CLICK TO OPEN" : "PREVIEW"))));
+      .child(div().absolute().left(0).w_full().bg("#0b0c0ee0").border_t(1).border_b(1).border_color("#ffffff22")
+        .top(on ? mid - BAND_H / 2 : mid).h(on ? BAND_H : 0)
+        .transition("top", { duration: 280, easing: "ease-out" }).transition("height", { duration: 280, easing: "ease-out" }))
+      .child(h_flex().absolute().left(0).top(0).w_full().h(MISSION_H).items_center().justify_center().gap(40)
+        .opacity(on ? 1 : 0).transition("opacity", { duration: 300, delay: 180, easing: "ease-out" })
+        .child(this.emblem(330))
+        .child(div().relative().px(34).py(14)
+          .child(corner(true, true)).child(corner(false, true)).child(corner(true, false)).child(corner(false, false))
+          .child(v_flex().child(word("MISSION", 112)).child(word("ACCOMPLISHED", 78)))))
+      .child(div().absolute().right(28).top(mid + BAND_H / 2 - 24).font_family(MONO).text_size(11).text_color("#ffffff88")
+        .opacity(on ? 1 : 0).transition("opacity", { duration: 300, delay: 400 })
+        .child(`${p.space}${p.title ? " · " + p.title : ""}${p.pane ? " · CLICK TO OPEN" : ""}`));
   }
 
   render() {

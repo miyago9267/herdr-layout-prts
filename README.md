@@ -23,6 +23,8 @@ herdr-app do layout.switch '{"name":"prts"}'
 
 Then merge `keys.json` into `~/.config/herdr-app/keys.json` (it adds a `layout:prts` section: `cmd-.` toggles HOME / TERMINAL, `cmd-;` opens the node map).
 
+Optional: put your own emblem at `~/.config/herdr-app/backgrounds/prts-emblem.png` (square-ish, transparent PNG, about 8:7) to replace the bundled one on the splash and the banner.
+
 Optional: put your own wallpaper at `~/.config/herdr-app/backgrounds/prts-operator.jpg` (16:10, subject on the left). Without it a dark gradient shows.
 
 What the mods touch: `prts-spaces` (copied from Herdr's `spaces`) runs `git status` / `git rev-parse` in each space's folder, watches the repo folder for changes, and calls `hc machine ls` for the machine list. Nothing makes network requests.
