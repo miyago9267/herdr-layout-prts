@@ -27,6 +27,7 @@ A Herdr layout styled after a tactical-game operator terminal: a HOME screen of 
 ## How it behaves
 
 - Agent status: blocked = orange diamonds blink on 編隊 / 幹員 / 調度, red clock badge on 調度, the node map's 幹員 node gets a diamond, the floating card says 需介入. Done = 完成 count and the card says 已完成. Working = 終端 count, one lit cell per working agent on 任務. Idle = counted, nothing lights.
+- `cmd-.` toggles HOME / TERMINAL; a dark curtain (92% `#05080e`) fades out over 380ms across the switch, since layout nodes can't animate. The node map fades in (220ms) and out (180ms); the boot splash fades in (350ms).
 - `cmd-.` toggles HOME / TERMINAL. `cmd-;` or the house button opens the node map; Esc, a click outside, or picking a node closes it.
 - Tiles and nodes: 終端 → TERMINAL; 編隊 → spaces drawer; 幹員 → agents drawer (grouped); 調度 / 任務 → agents drawer (priority sort); 基建 → Changes panel; 倉庫 → terminal picker; 首頁 → HOME. The node for whatever is open gets a blue ring.
 - Back arrow closes the open drawer or panel, else goes HOME.

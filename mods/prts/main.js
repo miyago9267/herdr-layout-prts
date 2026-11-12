@@ -80,6 +80,7 @@ function startHere() {
 const isHome = () => !find(layout(), "home")?.hidden;
 
 function go(to) {
+  curtain();
   if (to === "home") { run("layout.show", { id: "home" }); run("layout.hide", { id: "term" }); return; }
   run("layout.show", { id: "term" }); run("layout.hide", { id: "home" });
   startHere();
@@ -127,10 +128,15 @@ const DEPOT = () => run("mod.open", { name: "picker" });
 // TERMINAL node-map popup: an overlay opened by the house button / prts.nav, closed by Esc, a click outside, or a node.
 const BAR = 48;
 const NAV_H = 300, NAV_LINE = 152, NODE_W = 150;
+// Closing is animated: the popup sees __prtsNavOut, fades and slides up, then closes itself (Esc closes at once).
 function closeNav() {
   const id = globalThis.__prtsNav;
   globalThis.__prtsNav = null;
-  if (id) { try { closeOverlay(id); } catch (_e) { /* already closed */ } }
+  if (id) globalThis.__prtsNavOut = id;
+}
+// Screen switches can't animate layout nodes, so a dark curtain over the window fades out across the jump.
+function curtain() {
+  openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 1, at: { x: 0, y: 0 }, props: { role: "curtain" } });
 }
 function toggleNav() {
   const now = Date.now();
@@ -223,6 +229,25 @@ export default class Prts extends View {
     const role = props()?.role;
     this.now = new Date();
     this.size = { width: 900, height: 400 };
+    if (role === "curtain") {
+      this.phase = 0;
+      cx.timer.after(30, (cx) => { this.phase = 1; cx.notify(); });
+      cx.timer.after(420, () => { try { closeOverlay(props().overlay); } catch (_e) { /* gone */ } });
+      return;
+    }
+    if (role === "navpop") {
+      this.phase = 0;
+      cx.timer.after(20, (cx) => { this.phase = 1; cx.notify(); });
+      cx.timer.every(40, (cx) => {
+        const id = props().overlay;
+        if (this.phase !== 2 && globalThis.__prtsNavOut === id) {
+          this.phase = 2;
+          cx.notify();
+          cx.timer.after(200, () => { globalThis.__prtsNavOut = null; try { closeOverlay(id); } catch (_e) { /* gone */ } });
+        }
+      });
+      return;
+    }
     if (role === "boot" || role === "mission") {
       const close = role === "boot" ? BOOT_MS : 4400;
       this.phase = 0;
@@ -544,7 +569,9 @@ export default class Prts extends View {
       { zh: "基建", icon: "mods/prts/icon-base.svg", up: true, on: Boolean(p && !p.hidden && pb?.active === "changes"), act: BASE },
       { zh: "任務", icon: "mods/prts/icon-maze.svg", on: open === "d-agents" && sort !== "grouped", act: MISSIONS },
     ];
+    const on = this.phase === 1;
     return div().size_full().relative().bg("#05080eeb").border_b(1).border_color("#ffffff40")
+      .opacity(on ? 1 : 0).transition("opacity", { duration: on ? 220 : 180, easing: "ease-out" })
       .child(div().absolute().left(0).right(0).top(NAV_LINE - 18).h(36).bg("#ffffff0a").border_t(1).border_b(1).border_color("#ffffff14"))
       .child(div().absolute().left(0).right(0).top(NAV_LINE).h(1).bg("#ffffff38"))
       .child(div().absolute().right(24).bottom(10).font_family(MONO).text_size(10).text_color("#ffffff55").child("PRTS // NODE MAP"))
@@ -563,6 +590,13 @@ export default class Prts extends View {
       .child(h_flex().h(46).px(10).items_center().gap(8).bg(PAPER).hover((s) => s.bg(PAPER_HOVER))
         .child(div().flex_1().min_w(0).font_family(ZH).text_size(16).text_color(INK).truncate().child(a.space_name || a.tab_name || "-"))
         .child(div().flex_none().font_family(ZH).text_size(12).text_color(hot ? RED : "#2e8b46").child(hot ? "需介入" : "已完成")));
+  }
+
+  // An overlay closed from outside (Esc, a click beside the popup): forget it so the house button opens again at once.
+  async close() {
+    const id = props()?.overlay;
+    if (id && globalThis.__prtsNav === id) globalThis.__prtsNav = null;
+    if (id && globalThis.__prtsMission === id) globalThis.__prtsMission = null;
   }
 
   dismiss() {
@@ -614,7 +648,7 @@ export default class Prts extends View {
       .child(div().absolute().bottom(70).left(0).w_full().flex().justify_center()
         .child(div().font_family(ZH).text_size(15).text_color("#ffffff88").child(this.tip)));
     return div().id("boot").size_full().relative().bg("#141619").cursor_pointer()
-      .opacity(out ? 0 : 1).transition("opacity", { duration: 500, easing: "ease-in" })
+      .opacity(on && !out ? 1 : 0).transition("opacity", { duration: out ? 500 : 350, easing: "ease-in-out" })
       .on_click(() => this.dismiss())
       .child(sphere).child(line).child(mark)
       .child(div().absolute().left(0).bottom(0).w_full().h(64).bg("#0b0c0e")
@@ -665,6 +699,7 @@ export default class Prts extends View {
       case "spacer": return div().size_full();
       case "nav": return this.nav();
       case "navpop": return this.navpop();
+      case "curtain": return div().size_full().bg("#05080e").opacity(this.phase === 1 ? 0 : 0.92).transition("opacity", { duration: 380, easing: "ease-out" });
       case "lastop": return this.lastop();
       default: return this.top();
     }
