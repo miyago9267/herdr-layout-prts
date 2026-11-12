@@ -1,0 +1,173 @@
+{
+  "id": "root",
+  "type": "column",
+  "theme": "prts",
+  "titlebar": "none",
+  "traffic_lights": [14, 12],
+  "preview": "layouts/prts.svg",
+  "background": { "gradient": ["#0b1016", "#12202c"], "angle": 135 },
+  "terminal_opacity": 0.45,
+  "terminal_padding": [14, 12],
+  "font_size": 14,
+  "ui_font": "Geist Mono",
+  "colors": { "chrome": "#0b0f1599", "canvas": "#0a0e1300", "border": "#ffffff29" },
+  "children": [
+    {
+      "id": "art",
+      "type": "column",
+      "background": { "image": "backgrounds/prts-operator.jpg", "fit": "cover" },
+      "children": [
+        {
+          "id": "home",
+          "type": "column",
+          "hidden": true,
+          "gap": 10,
+          "padding": [10, 22],
+          "children": [
+            { "id": "header", "type": "block", "size": { "px": 64 }, "window_drag": true,
+              "content": { "mod": "prts", "props": { "role": "top" } } },
+            {
+              "id": "stage",
+              "type": "row",
+              "gap": 20,
+              "children": [
+                {
+                  "id": "left",
+                  "type": "column",
+                  "gap": 18,
+                  "children": [
+                    { "id": "hero", "type": "block", "size": { "weight": 1 },
+                      "content": { "mod": "prts", "props": { "role": "hero" } } },
+                    {
+                      "id": "voice-row",
+                      "type": "row",
+                      "size": { "px": 108 },
+                      "resizable": false,
+                      "children": [
+                        { "id": "voice", "type": "block", "size": { "px": 520 },
+                          "content": { "mod": "prts", "props": { "role": "voice" } } },
+                        { "id": "voice-gap", "type": "block", "size": { "weight": 1 },
+                          "content": { "mod": "prts", "props": { "role": "spacer" } } }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "right",
+                  "type": "column",
+                  "size": { "px": 734 },
+                  "resizable": false,
+                  "children": [
+                    { "id": "right-top", "type": "block", "size": { "weight": 1 },
+                      "content": { "mod": "prts", "props": { "role": "spacer" } } },
+                    { "id": "menu", "type": "block", "size": { "px": 800 },
+                      "content": { "mod": "prts", "props": { "role": "menu" } } }
+                  ]
+                }
+              ]
+            },
+            { "id": "status", "type": "block", "size": { "px": 20 },
+              "content": { "mod": "prts", "props": { "role": "footer" } } }
+          ]
+        },
+        {
+          "id": "term",
+          "type": "column",
+          "background": "#05080e78",
+          "children": [
+            { "id": "nav", "type": "block", "size": { "px": 48 }, "window_drag": true,
+              "content": { "mod": "prts", "props": { "role": "nav" } } },
+            {
+              "id": "work-body",
+              "type": "row",
+              "gap": 8,
+              "padding": [8, 10],
+              "children": [
+                {
+                  "id": "drawer",
+                  "type": "column",
+                  "hidden": true,
+                  "size": { "px": 340 },
+                  "min": 260,
+                  "max": 640,
+                  "background": "#080b10d9",
+                  "radius": 10,
+                  "border": { "width": 1, "color": "#ffffff33" },
+                  "children": [
+                    {
+                      "id": "drawer-body",
+                      "type": "stack",
+                      "active": "d-spaces",
+                      "children": [
+                        { "id": "d-spaces", "type": "block", "content": { "mod": "prts-spaces" } },
+                        { "id": "d-agents", "type": "block", "content": { "mod": "prts-agents" } }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "console",
+                  "type": "column",
+                  "background": "#0b0f1552",
+                  "radius": 10,
+                  "border": { "width": 1, "color": "#ffffff33" },
+                  "shadow": "lg",
+                  "padding": 4,
+                  "children": [
+                    { "id": "tabs", "type": "block", "size": { "px": 40 }, "window_drag": true,
+                      "content": { "mod": "tabs" } },
+                    {
+                      "id": "term-body",
+                      "type": "row",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "id": "main",
+                          "type": "block",
+                          "content": {
+                            "tab": "active",
+                            "pane": {
+                              "gap": 8,
+                              "radius": 10,
+                              "background": "#0b0f1550",
+                              "lone": true,
+                              "border": { "width": 1, "color": "#ffffff29" },
+                              "focus": { "width": 1, "color": "accent" },
+                              "header": { "content": { "mod": "pane" }, "height": 30, "position": "top", "reveal": "hover" }
+                            }
+                          }
+                        },
+                        {
+                          "id": "panel",
+                          "type": "column",
+                          "hidden": true,
+                          "size": { "px": 368 },
+                          "min": 280,
+                          "max": 900,
+                          "children": [
+                            {
+                              "id": "panel-body",
+                              "type": "stack",
+                              "active": "files",
+                              "children": [
+                                { "id": "files", "type": "block", "content": { "mod": "files" } },
+                                { "id": "changes", "type": "block", "content": { "mod": "changes" } }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "floating": [
+            { "id": "lastop", "content": { "mod": "prts", "props": { "role": "lastop" } }, "edge": "bottom", "align": "end" }
+          ]
+        }
+      ]
+    }
+  ]
+}

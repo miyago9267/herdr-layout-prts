@@ -1,0 +1,6 @@
+{
+  "layout:prts": {
+    "cmd-.": "prts.toggle",
+    "cmd-;": "prts.nav"
+  }
+}
