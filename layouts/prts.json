@@ -3,6 +3,7 @@
   "type": "column",
   "theme": "prts",
   "titlebar": "none",
+  "toast": "prts-toast",
   "traffic_lights": [14, 12],
   "preview": "layouts/prts.svg",
   "background": { "gradient": ["#0b1016", "#12202c"], "angle": 135 },

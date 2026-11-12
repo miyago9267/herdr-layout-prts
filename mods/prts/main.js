@@ -16,7 +16,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import * as fs from "fs/promises";
-import { appHome, spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay } from "herdr";
+import { appHome, spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay, notify } from "herdr";
 
 const MONO = "Geist Mono";
 const HEAVY = "Avenir Next"; // macOS system face; heavy Latin for MISSION ACCOMPLISHED
@@ -176,12 +176,13 @@ function watchDone() {
   if (hit) openMission(hit);
 }
 
-// Key commands ("prts.<name>" in keys.json): toggle, nav, home, term, squads, roster, missions, base, boot, mission (demo).
+// Key commands ("prts.<name>" in keys.json): toggle, nav, home, term, squads, roster, missions, base, boot, mission (demo), toast (demo).
 function command(c) {
   const jump = { squads: SQUADS, roster: ROSTER, missions: MISSIONS, base: BASE };
   if (c === "toggle") toggle();
   else if (c === "nav") toggleNav();
   else if (c === "boot") openBoot();
+  else if (c === "toast") notify({ title: "PRTS 通知預覽", body: "所有通知都會用這張卡片顯示", level: "success" });
   else if (c === "mission") openMission({ pane: null, space_name: "DEMO", title: "mission accomplished preview" });
   else if (c === "home" || c === "term") go(c);
   else if (jump[c]) enter(jump[c])();
@@ -579,11 +580,20 @@ export default class Prts extends View {
   }
 
   // 前往上一次作戰: shown only while some other agent is blocked or done. Renders nothing otherwise.
-  lastop() {
+  lastop(cx) {
     const a = topAgent(agents().filter((x) => x.status === "blocked" || x.status === "done"), true);
-    if (!a) return div().w(0).h(0);
+    if (!a) { this.shown = null; return div().w(0).h(0); }
     const hot = a.status === "blocked";
+    // A new agent (or a new state) slides the card in again, like the toasts.
+    const key = `${a.address}:${a.status}`;
+    if (this.shown !== key) {
+      this.shown = key;
+      this.slid = false;
+      cx.timer.after(20, (cx) => { this.slid = true; cx.notify(); });
+    }
     return v_flex().id("lastop").w(230).cursor_pointer().on_click(() => run("pane.focus", { pane: a.pane }))
+      .relative().left(this.slid ? 0 : 40).opacity(this.slid ? 1 : 0)
+      .transition("left", { duration: 260, easing: "ease-out" }).transition("opacity", { duration: 220, easing: "ease-out" })
       .child(h_flex().h(22).px(10).items_center().gap(6).bg("#14171b")
         .child(svg("mods/prts/diamond.svg").size(9).text_color(hot ? RED : GREEN).loop("opacity", { from: 0.35, to: 1, period: hot ? 900 : 2400 }))
         .child(div().font_family(ZH).text_size(12).text_color("#ffffffdd").child("前往上一次作戰")))
@@ -687,7 +697,7 @@ export default class Prts extends View {
         .child(`${p.space}${p.title ? " · " + p.title : ""}${p.pane ? " · CLICK TO OPEN" : ""}`)));
   }
 
-  render() {
+  render(cx) {
     const t = theme();
     const role = props()?.role;
     if (role === "top" || role === "nav") watchDone();
@@ -702,7 +712,7 @@ export default class Prts extends View {
       case "nav": return this.nav();
       case "navpop": return this.navpop();
       case "curtain": return div().size_full().bg("#05080e").opacity(this.phase === 1 ? 0 : 0.92).transition("opacity", { duration: 380, easing: "ease-out" });
-      case "lastop": return this.lastop();
+      case "lastop": return this.lastop(cx);
       default: return this.top();
     }
   }

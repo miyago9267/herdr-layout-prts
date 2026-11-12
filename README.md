@@ -8,7 +8,7 @@ A two-screen [Herdr](https://herdr.dev) layout inspired by the operator terminal
 |---|---|
 | ![TERMINAL](screenshots/terminal.png) | ![Node map](screenshots/node-map.png) |
 
-Also: a "connecting to the Terra neural network" splash at launch, and a 行動結束 / MISSION ACCOMPLISHED banner when an agent finishes while you are away (`herdr-app do prts.mission` to preview).
+Also: a "connecting to the Terra neural network" splash at launch, and a 行動結束 / MISSION ACCOMPLISHED banner when an agent finishes while you are away (`herdr-app do prts.mission` to preview). Every notification uses the same card as the bottom-right "前往上一次作戰" popup and slides in from the right (`herdr-app do prts.toast` to preview).
 
 ## Install
 
@@ -17,7 +17,7 @@ git clone https://github.com/miyago9267/herdr-layout-prts
 cd herdr-layout-prts
 cp layouts/prts.json layouts/prts.svg ~/.config/herdr-app/layouts/
 cp themes/prts.json ~/.config/herdr-app/themes/
-cp -R mods/prts mods/prts-spaces mods/prts-agents ~/.config/herdr-app/mods/
+cp -R mods/prts mods/prts-spaces mods/prts-agents mods/prts-toast ~/.config/herdr-app/mods/
 herdr-app do layout.switch '{"name":"prts"}'
 ```
 
