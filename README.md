@@ -17,7 +17,7 @@ git clone https://github.com/miyago9267/herdr-layout-prts
 cd herdr-layout-prts
 cp layouts/prts.json layouts/prts.svg ~/.config/herdr-app/layouts/
 cp themes/prts.json ~/.config/herdr-app/themes/
-cp -R mods/prts mods/prts-spaces mods/prts-agents mods/prts-toast ~/.config/herdr-app/mods/
+cp -R mods/prts mods/prts-spaces mods/prts-agents mods/prts-toast mods/prts-tabs ~/.config/herdr-app/mods/
 herdr-app do layout.switch '{"name":"prts"}'
 ```
 

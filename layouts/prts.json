@@ -74,7 +74,7 @@
         {
           "id": "term",
           "type": "column",
-          "background": "#05080e78",
+          "background": { "gradient": ["#03060ac4", "#05080e8c"], "angle": 180 },
           "children": [
             { "id": "nav", "type": "block", "size": { "px": 48 }, "window_drag": true,
               "content": { "mod": "prts", "props": { "role": "nav" } } },
@@ -92,7 +92,7 @@
                   "min": 260,
                   "max": 640,
                   "background": "#080b10d9",
-                  "radius": 10,
+                  "radius": 0,
                   "border": { "width": 1, "color": "#ffffff33" },
                   "children": [
                     {
@@ -110,13 +110,14 @@
                   "id": "console",
                   "type": "column",
                   "background": "#0b0f1552",
-                  "radius": 10,
+                  "radius": 0,
                   "border": { "width": 1, "color": "#ffffff33" },
-                  "shadow": "lg",
                   "padding": 4,
                   "children": [
+                    { "id": "strip", "type": "block", "size": { "px": 22 }, "window_drag": true,
+                      "content": { "mod": "prts-tabs", "props": { "role": "strip" } } },
                     { "id": "tabs", "type": "block", "size": { "px": 40 }, "window_drag": true,
-                      "content": { "mod": "tabs" } },
+                      "content": { "mod": "prts-tabs" } },
                     {
                       "id": "term-body",
                       "type": "row",
@@ -129,7 +130,7 @@
                             "tab": "active",
                             "pane": {
                               "gap": 8,
-                              "radius": 10,
+                              "radius": 0,
                               "background": "#0b0f1550",
                               "lone": true,
                               "border": { "width": 1, "color": "#ffffff29" },
@@ -158,7 +159,9 @@
                           ]
                         }
                       ]
-                    }
+                    },
+                    { "id": "foot", "type": "block", "size": { "px": 10 },
+                      "content": { "mod": "prts-tabs", "props": { "role": "foot" } } }
                   ]
                 }
               ]
