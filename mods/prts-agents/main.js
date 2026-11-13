@@ -2,7 +2,7 @@
 // A viewed done agent stays in Done until left.
 
 import { View, div, image, svg } from "gpui-kit";
-import { sectionLabel, backdrop } from "./label.js";
+import { backdrop, strip, groupLabel, mark, ZH, MONO, INK, PAPER, PAPER_HOVER, SLAB, SLAB_HOVER, LIGHT, BLUE, ORANGE } from "./label.js";
 import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 
@@ -184,38 +184,32 @@ export default class Agents extends View {
   subRow(t, s, shown, compact) {
     const k = s.t;
     const st = kidStatus(k, this.listed);
-    const pic = icon(k.program, 14, t.foreground);
+    const pic = icon(k.program, 14, on ? INK : LIGHT);
     const on = k.address === shown;
     return h_flex()
       .id(`sub-${k.address}`)
       .pl(39)
-      .pr(8)
-      .rounded(8)
+      .pr(10)
       .h(26)
       .flex_none()
       .gap(0)
       .items_center()
       .text_size(12.5)
-      .when(on, (el) => el.bg(t.raised))
-      .hover((s) => s.bg(t.hover))
+      .bg(on ? PAPER : SLAB)
+      .hover((s) => s.bg(on ? PAPER_HOVER : SLAB_HOVER))
       .on_click(() => this.peek(k.address))
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
-        .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
+        .when(Boolean(l), el => el.border_l(1.5).border_color("#ffffff30"))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
-      .child(div().flex_1().truncate().text_color(on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
+      .child(div().flex_1().truncate().font_family(MONO).text_size(11).text_color(on ? INK : "#c3c8cf").child(k.name || k.template || k.program?.name || k.address))
       .child(this.status(t, { status: st }, compact));
   }
 
   // compact: a ! for blocked where a header already says "Needs you".
   status(t, a, compact = false) {
-    const color = t[a.status] ?? t.dim;
-    if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
-    if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
-    if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
-    // Idle: a ring; done: a dot.
-    if (a.status === "idle") return div().size(7).mx(3).flex_none().rounded(4).border(1.5).border_color(t.idle ?? t.dim);
-    return div().size(7).mx(3).flex_none().rounded(4).bg(a.status === "done" ? color : t.dim + "00");
+    if (a.status === "blocked" && !compact) return div().flex_none().font_family(ZH).text_size(11).text_color(ORANGE).child("需介入");
+    return mark(a.status) ?? div().w(10).flex_none();
   }
 
   render(cx) {
@@ -261,7 +255,7 @@ export default class Agents extends View {
         .items_center()
         .rounded(4)
         .text_size(11)
-        .text_color(open ? t.dim : (t[top] ?? t.dim))
+        .text_color(open ? "#9aa1ab" : (t[top] ?? "#9aa1ab"))
         .cursor_pointer()
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_click((_e, cx) => {
@@ -289,7 +283,7 @@ export default class Agents extends View {
     }
 
     const row = (a, i, subs = []) => {
-      const pic = icon(a.program, 16, t.foreground);
+      const pic = icon(a.program, 16, a.focused ? INK : LIGHT);
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
@@ -301,9 +295,10 @@ export default class Agents extends View {
           .flex_none()
           .items_center()
           .gap(4)
-          .hover((s) => s.bg(t.hover))
+          .bg(a.focused ? PAPER : SLAB)
+          .hover((s) => s.bg(a.focused ? PAPER_HOVER : SLAB_HOVER))
           .on_click(() => (run("pane.focus", { pane: a.pane }), dismiss()))
-          .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
+          .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().font_family(MONO).text_size(11).text_color(a.focused ? INK : LIGHT).child(String(i + 1)))
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
       }
       const when = this.since(a);
@@ -314,9 +309,9 @@ export default class Agents extends View {
         .flex_none()
         .p(2)
         .rounded(4)
-        .text_color(t.dim)
+        .text_color(a.focused ? "#5b6068" : "#9aa1ab")
         .cursor_pointer()
-        .hover((s) => s.bg(t.hover).text_color(t.foreground))
+        .hover((s) => s.bg("#88888866").text_color(a.focused ? INK : LIGHT))
         .tooltip(isPinned ? "Unpin" : "Pin to the top")
         .on_click((_e, cx) => {
           cx.stop_propagation();
@@ -332,15 +327,16 @@ export default class Agents extends View {
       const name = full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
       return h_flex()
         .id(`ag-${a.address}`)
-        .px(8)
-        .h(30)
+        .relative()
+        .px(12)
+        .h(34)
         .flex_none()
-        .rounded(8)
         .items_center()
         .gap(9)
-        .when(a.focused, (el) => el.bg(t.selected).child(div().w(2).h(16).flex_none().ml(-5).mr(-4).bg(t.accent).loop("opacity", { from: 0.35, to: 1, period: 1400 })))
+        .bg(a.focused ? PAPER : SLAB)
+        .child(div().absolute().left(0).top(0).bottom(0).w(a.focused ? 3 : 2).bg(BLUE).when(!a.focused, (el) => el.opacity(0.4)))
         .cursor_pointer()
-        .hover((s) => s.bg(t.hover))
+        .hover((s) => s.bg(a.focused ? PAPER_HOVER : SLAB_HOVER))
         .on_hover((on, cx) => {
           if (on) this.hovered = a.address;
           else if (this.hovered === a.address) this.hovered = null;
@@ -354,12 +350,12 @@ export default class Agents extends View {
             cx.notify();
           })).child(pic)))
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
-          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
-          .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
+          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().font_family(ZH).text_size(14).text_color(a.focused ? INK : idle ? "#aab0b8" : LIGHT).child(name))
+          .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().font_family(MONO).text_size(10).text_color(a.focused ? "#5b6068" : "#9aa1ab").child(`\u00b7 ${more}`))))
+        .when(Boolean(machine), el => el.child(div().font_family(MONO).text_size(10).text_color("#9aa1ab").child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))
-        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
+        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(a.focused ? "#5b6068" : "#9aa1ab").child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
     };
 
@@ -379,26 +375,23 @@ export default class Agents extends View {
       const top = g.members.reduce((m, a) => ((RANK[a.status] ?? 0) > (RANK[m] ?? 0) ? a.status : m), null);
       return h_flex()
         .id(g.id)
-        .px(8)
+        .px(2)
         .pt(8)
-        .h(30)
+        .h(28)
         .flex_none()
-        .gap(6)
+        .gap(7)
         .items_center()
-        .text_size(11)
-        .font_medium()
         .cursor_pointer()
-        .hover((s) => s.text_color(t.foreground))
+        .hover((s) => s.opacity(0.8))
         .on_click((_e, cx) => {
           open ? this.folded.add(g.id) : this.folded.delete(g.id);
           cx.notify();
         })
-        .child(div().truncate().font_family("Geist Mono").text_color(t[g.status] ?? t.dim).child(g.label.toUpperCase()))
-        .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
-        .child(div().flex_1())
+        .child(groupLabel(g.label.toUpperCase(), g.status === "blocked" ? ORANGE : g.status === "done" ? "#86b22d" : g.status === "working" ? BLUE : "#9aa1ab"))
+        .when(byPriority || !open, (el) => el.child(div().font_family(MONO).text_size(10.5).text_color("#9aa1ab").child(String(g.members.length))))
         .when(!open, (el) => el
           .when(!byPriority && top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
-          .child(svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
+          .child(svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color("#9aa1ab")));
     };
     const rows = collapsed
       ? list.flatMap(withKids)
@@ -412,36 +405,22 @@ export default class Agents extends View {
       .bg(t.chrome)
       .on_size_change((size, cx) => { if (Math.abs((this.h ?? 0) - size.height) > 1) { this.h = size.height; cx.notify(); } })
       .child(backdrop(t))
-      .border_t(1)
-      .border_color(t.border)
-      .text_size(13)
+            .text_size(13)
       .when(!collapsed, (el) =>
         el.child(
-          h_flex()
-            .px(12)
-            .h(41)
-            .pt(14)
-            .pb(5)
-            .flex_none()
-            .items_center()
-            .justify_between()
-            .child(sectionLabel(t, "OPERATOR"))
-            .child(
-              div()
-                .id("ag-sort")
-                .text_size(11)
-                .text_color(t.dim)
-                .hover((s) => s.text_color(t.foreground))
-                .on_click(() => openOverlay({ mod: "prts-agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
-                .tooltip(`Sort agents: ${sort.label}`)
-                .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
-            ),
+          strip("幹員 // OPERATOR", div()
+            .id("ag-sort")
+            .text_color("#ffffffcc")
+            .hover((s) => s.text_color("#ffffff"))
+            .on_click(() => openOverlay({ mod: "prts-agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
+            .tooltip(`Sort agents: ${sort.label}`)
+            .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14))),
         ),
       )
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows))
+      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).pt(4).gap(3).overflow_y_scrollbar().mode("always").children(rows))
       .when(collapsed, (el) =>
         el.child(
           h_flex()
