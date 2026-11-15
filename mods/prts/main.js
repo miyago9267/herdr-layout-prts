@@ -7,7 +7,7 @@
 //   footer  HOME dim caption line
 //   spacer  empty, lets the art show
 //   nav     TERMINAL 48px top bar: back / house buttons, search / settings; house (or cmd-;) opens navpop
-//   navpop  overlay popup under the bar: node map (首頁 編隊 幹員 終端 基建 任務)
+//   navpop  overlay popup under the bar: stage screen (stage.js: ATTENTION / TO-DO LIST, icon bar 終端 編隊 幹員 基建 任務 首頁)
 //   lastop  TERMINAL floating card "前往上一次作戰": only while another agent is blocked or done
 // A screen switch shows one layout node and hides the other (nodes `home` / `term`), so terminals and mod copies stay alive.
 // Hard corners, flat fills, no blur shadows: depth is a darker backing slab that a hovered tile slides off.
@@ -16,6 +16,9 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import * as fs from "fs/promises";
+import { missionView, curtainView } from "./overlays.js";
+import { stage } from "./stage.js";
+import { tiltBack } from "./tilt.js";
 import { appHome, spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay, notify } from "herdr";
 
 const MONO = "Geist Mono";
@@ -127,14 +130,13 @@ const DEPOT = () => run("mod.open", { name: "picker" });
 
 // TERMINAL node-map popup: an overlay opened by the house button / prts.nav, closed by Esc, a click outside, or a node.
 const BAR = 48;
-const NAV_H = 300, NAV_LINE = 152, NODE_W = 150;
 // Closing is animated: the popup sees __prtsNavOut, fades and slides up, then closes itself (Esc closes at once).
 function closeNav() {
   const id = globalThis.__prtsNav;
   globalThis.__prtsNav = null;
   if (id) globalThis.__prtsNavOut = id;
 }
-// Screen switches can't animate layout nodes, so a dark curtain over the window fades out across the jump.
+// Screen switches can't animate layout nodes, so a brief transition card (overlays.js) covers the jump.
 function curtain() {
   openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 1, at: { x: 0, y: 0 }, props: { role: "curtain" } });
 }
@@ -143,14 +145,14 @@ function toggleNav() {
   if (now - (globalThis.__prtsNavAt ?? 0) < 300) return;
   globalThis.__prtsNavAt = now;
   if (globalThis.__prtsNav) { closeNav(); return; }
-  globalThis.__prtsNav = openOverlay({ mod: "prts", kind: "popup", frame: "none", width: 1, height: NAV_H, at: { x: 0, y: BAR }, props: { role: "navpop" } });
+  globalThis.__prtsNav = openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 0.955, at: { x: 0, y: BAR }, props: { role: "navpop" } });
 }
 
 // Boot splash ("connecting to the Terra neural network") and the MISSION ACCOMPLISHED banner.
 // Both are `window` overlays: no dimming and they never take the keyboard, so typing goes on underneath.
-const MISSION_H = 320, BAND_H = 210;
+const MISSION_H = 320, BAND_H = 180;
 const BOOT_MS = 5300;
-const TIPS = ["提示：cmd-; 開啟節點地圖，cmd-. 切換首頁與終端", "提示：幹員回報完成時，會顯示行動結束", "提示：點擊「前往上一次作戰」直接跳到需要你的幹員"];
+const TIPS = ["提示：cmd-; 開啟關卡介面，cmd-. 切換首頁與終端", "提示：幹員回報完成時，會顯示任務完成", "提示：點擊「前往上一次作戰」直接跳到需要你的幹員"];
 const EMBLEM_FILE = "backgrounds/prts-emblem.png";
 function openBoot() {
   globalThis.__prtsBooted = true;
@@ -232,12 +234,17 @@ export default class Prts extends View {
     this.size = { width: 900, height: 400 };
     if (role === "curtain") {
       this.phase = 0;
+      this.tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+      cx.spawn(async (cx) => { try { await fs.stat(`${appHome()}/${EMBLEM_FILE}`); globalThis.__prtsEmblem = true; cx.notify(); } catch (_e) { /* no local emblem */ } });
       cx.timer.after(30, (cx) => { this.phase = 1; cx.notify(); });
-      cx.timer.after(420, () => { try { closeOverlay(props().overlay); } catch (_e) { /* gone */ } });
+      cx.timer.after(500, (cx) => { this.phase = 2; cx.notify(); });
+      cx.timer.after(800, () => { try { closeOverlay(props().overlay); } catch (_e) { /* gone */ } });
       return;
     }
     if (role === "navpop") {
       this.phase = 0;
+      this.focus = cx.focus_handle();
+      cx.timer.after(60, () => this.focus.focus());
       cx.timer.after(20, (cx) => { this.phase = 1; cx.notify(); });
       cx.timer.every(40, (cx) => {
         const id = props().overlay;
@@ -347,8 +354,9 @@ export default class Prts extends View {
   }
 
   // A slab = darker backing + flat face. Hover slides the face 4px left and exposes more of the backing.
-  slab(id, { bg, bgHover, edge, action, body, marks = [] }) {
+  slab(id, { bg, bgHover, edge, action, body, marks = [], dim = [364, S(112)] }) {
     return div().relative().flex_none()
+      .child(tiltBack(dim))
       .child(div().absolute().left(0).top(0).right(0).bottom(0).bg(edge))
       .child(div().id(id).absolute().left(0).top(0).right(4).bottom(4).overflow_hidden().bg(bg).cursor_pointer()
         .hover((s) => s.bg(bgHover).left(-4).right(8)).on_click(action)
@@ -362,9 +370,9 @@ export default class Prts extends View {
   }
 
   // Standard off-white tile: title, line art, a real number and a short flavor line.
-  plain(id, { zh, en, value, art, action, marks, mono = false, w, mt }) {
+  plain(id, { zh, en, value, art, action, marks, mono = false, w, mt, tw = 364 }) {
     const el = this.paper(id, {
-      action, marks,
+      action, marks, dim: [w ?? tw, S(112)],
       body: [
         svg("mods/prts/lines.svg").absolute().left(S(96)).top(S(16)).w(S(120)).h(S(26)).text_color("#00000014"),
         art,
@@ -380,6 +388,7 @@ export default class Prts extends View {
   battle(tab, space, working, total, st, color) {
     const label = tab?.name ?? "-";
     return this.paper("t-start", {
+      dim: [734, S(160)],
       action: enter(startHere),
       body: [
         svg("mods/prts/lines.svg").absolute().left(S(250)).top(S(36)).w(S(150)).h(S(31)).text_color("#0000000f"),
@@ -413,7 +422,7 @@ export default class Prts extends View {
       : h_flex().absolute().right(14).top(-10).items_center().h(S(22)).bg("#3a2a18").px(8)
         .child(div().font_family(ZH).text_size(S(12)).text_color("#e8d3ae").child("全員正常"));
     return this.slab("t-dispatch", {
-      bg: TAN, bgHover: TAN_HOVER, edge: TAN_EDGE, action: enter(MISSIONS),
+      bg: TAN, bgHover: TAN_HOVER, edge: TAN_EDGE, action: enter(MISSIONS), dim: [S(458), S(108)],
       marks: [badge, diamond(blocked > 0, S(156), -8)],
       body: [
         div().absolute().left(0).top(0).bottom(0).w(3).bg(RED),
@@ -445,14 +454,14 @@ export default class Prts extends View {
         .child(div().font_family(NUM).font_extrabold().text_size(S(14)).text_color("#ffffff").child(String(tabs))),
     ];
     return this.plain("t-base", {
-      zh: "基建", en: "Branch in play", value: branch, mono: true, action, marks,
+      zh: "基建", en: "Branch in play", value: branch, mono: true, action, marks, mt: 6, tw: 287,
       art: svg("mods/prts/icon-base.svg").absolute().right(8).top(S(10)).w(S(84)).h(S(87)).text_color(LINE_ART),
     });
   }
 
   depot(count) {
     return this.slab("t-depot", {
-      bg: CHAR, bgHover: "#252a30f5", edge: CHAR_EDGE, action: enter(DEPOT),
+      bg: CHAR, bgHover: "#252a30f5", edge: CHAR_EDGE, action: enter(DEPOT), dim: [S(120), S(112)],
       body: [
         svg("mods/prts/stripes.svg").absolute().left(0).top(0).w(S(520)).h(S(140)).text_color("#ffffff0c"),
         svg("mods/prts/icon-box.svg").absolute().right(6).bottom(8).size(S(62)).text_color("#d4b06a66"),
@@ -461,7 +470,7 @@ export default class Prts extends View {
           .child(div().font_family(NUM).font_black().text_size(S(24)).text_color(GOLD).child(String(count)))
           .child(micro("terminals", "#8d939b")),
       ],
-    }).w(S(120)).h(S(112));
+    }).w(S(120)).h(S(112)).mt(12);
   }
 
   menu() {
@@ -475,7 +484,7 @@ export default class Prts extends View {
     const st = STATUS[tab?.status ?? "idle"];
     const color = { working: "#0a7fc0", blocked: "#c0700a", done: "#2e8b46" }[tab?.status] ?? "#7b8490";
     const branch = panes().find((p) => p.tab === tab?.id && p.branch)?.branch ?? space?.branch ?? "-";
-    return v_flex().size_full().gap(6)
+    return v_flex().size_full().gap(10)
       .child(this.battle(tab, space, working, list.length, st, color))
       .child(h_flex().flex_none().gap(6).items_start()
         .child(this.plain("t-squads", {
@@ -484,7 +493,7 @@ export default class Prts extends View {
           art: svg("mods/prts/icon-squads.svg").absolute().right(8).top(S(10)).w(S(96)).h(S(80)).text_color(LINE_ART),
         }))
         .child(this.plain("t-ops", {
-          zh: "幹員", en: "Roster and reports", value: String(list.length), action: enter(ROSTER), mt: 6,
+          zh: "幹員", en: "Roster and reports", value: String(list.length), action: enter(ROSTER), mt: 11,
           marks: [diamond(blocked + done > 0, 8, -8)],
           art: svg("mods/prts/icon-ops.svg").absolute().right(10).top(S(8)).size(S(88)).text_color(LINE_ART),
         })))
@@ -510,34 +519,6 @@ export default class Prts extends View {
       .child(svg(icon).size(sz > 40 ? 22 : 20));
   }
 
-  // One node of the map, like the game's: a circle on the spine, a dashed stem to an icon + label above or below it.
-  node(n) {
-    const W = NODE_W, L = NAV_LINE;
-    const color = n.current ? WHITE : n.on ? ACCENT : "#d6dbe0";
-    const at = (s) => div().absolute().left(Math.round(W / 2 - s / 2)).top(Math.round(L - s / 2)).size(s);
-    const ring = (s, c) => at(s).rounded_full().border_1().border_color(c);
-    const stem = (top, len) => v_flex().absolute().left(Math.round(W / 2) - 1).top(top).w(2).h(len).gap(5).overflow_hidden()
-      .children(Array.from({ length: Math.ceil(len / 11) }, () => div().w(2).h(6).flex_none().bg("#ffffff70")));
-    const icon = svg(n.icon).size(n.current ? 48 : 42).text_color(color);
-    const label = title(n.zh, n.current ? 28 : 24, color, 0.98);
-    const group = v_flex().absolute().left(0).w(W).items_center().gap(6)
-      .children(n.up ? [icon, label] : [label, icon]);
-    const r = n.current ? 30 : 22;
-    return div().id(`node-${n.zh}`).relative().w(W).h(NAV_H).flex_none().cursor_pointer()
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => { closeNav(); n.act(); })
-      .when(Boolean(n.current), (el) => el
-        .child(ring(170, "#ffffff2c").loop("opacity", { from: 0.5, to: 1, period: 3200 }))
-        .child(ring(104, "#ffffff55")))
-      .child(n.up ? stem(110, L - r - 110) : stem(L + r, 190 - L - r))
-      .child(n.up ? group.top(n.current ? 14 : 24) : group.top(196))
-      .child(at(2 * r).flex().items_center().justify_center().bg("#05080e")
-        .child(n.current
-          ? svg("mods/prts/node-cur.svg").size(2 * r).text_color(WHITE).loop("opacity", { from: 0.65, to: 1, period: 2600 })
-          : svg("mods/prts/node-dot.svg").size(2 * r).text_color(color)))
-      .when(Boolean(n.on), (el) => el.child(ring(2 * r + 18, ACCENT + "88")))
-      .when(Boolean(n.alert), (el) => el.child(diamond(true, Math.round(W / 2 - r - 14), L - r - 12)));
-  }
-
   // TERMINAL top bar: back + house at left, search / settings at right. The node map is the popup (navpop).
   nav() {
     const root = layout();
@@ -555,7 +536,7 @@ export default class Prts extends View {
       .child(this.squareButton("settings", "mods/workspace-chrome/settings.svg", "Settings", () => run("app.settings"), 36));
   }
 
-  // The popup: node map 首頁 編隊 幹員 終端 基建 任務, dark translucent like the game's top area.
+  // The popup: the stage screen (stage.js) over everything under the bar; the icon bar replaces the old node spine.
   navpop() {
     const root = layout();
     const d = find(root, "drawer"), db = find(root, "drawer-body"), p = find(root, "panel"), pb = find(root, "panel-body");
@@ -563,20 +544,15 @@ export default class Prts extends View {
     const sort = shared("agents.sort");
     const alert = agents().some((a) => a.status === "blocked" || a.status === "done");
     const nodes = [
-      { zh: "首頁", icon: "mods/prts/home.svg", act: () => go("home") },
-      { zh: "編隊", icon: "mods/prts/icon-squads.svg", up: true, on: open === "d-spaces", act: SQUADS },
+      { zh: "終端", icon: "mods/prts/diamond.svg", current: true, act: () => { closeSide(); startHere(); } },
+      { zh: "編隊", icon: "mods/prts/icon-squads.svg", on: open === "d-spaces", act: SQUADS },
       { zh: "幹員", icon: "mods/prts/icon-ops.svg", on: open === "d-agents" && sort === "grouped", alert, act: ROSTER },
-      { zh: "終端", icon: "mods/prts/diamond.svg", up: true, current: true, act: () => { closeSide(); startHere(); } },
-      { zh: "基建", icon: "mods/prts/icon-base.svg", up: true, on: Boolean(p && !p.hidden && pb?.active === "changes"), act: BASE },
+      { zh: "基建", icon: "mods/prts/icon-base.svg", on: Boolean(p && !p.hidden && pb?.active === "changes"), act: BASE },
       { zh: "任務", icon: "mods/prts/icon-maze.svg", on: open === "d-agents" && sort !== "grouped", act: MISSIONS },
+      { zh: "首頁", icon: "mods/prts/home.svg", act: () => go("home") },
     ];
-    const on = this.phase === 1;
-    return div().size_full().relative().bg("#05080eeb").border_b(1).border_color("#ffffff40")
-      .opacity(on ? 1 : 0).transition("opacity", { duration: on ? 220 : 180, easing: "ease-out" })
-      .child(div().absolute().left(0).right(0).top(NAV_LINE - 18).h(36).bg("#ffffff0a").border_t(1).border_b(1).border_color("#ffffff14"))
-      .child(div().absolute().left(0).right(0).top(NAV_LINE).h(1).bg("#ffffff38"))
-      .child(div().absolute().right(24).bottom(10).font_family(MONO).text_size(10).text_color("#ffffff55").child("PRTS // NODE MAP"))
-      .child(h_flex().size_full().justify_center().gap(28).children(nodes.map((n) => this.node(n))));
+    const pick = (a) => { run("space.select", { id: a.space }); run("pane.focus", { pane: a.pane }); };
+    return stage({ on: this.phase === 1, nodes, close: closeNav, pick, focus: this.focus });
   }
 
   // 前往上一次作戰: shown only while some other agent is blocked or done. Renders nothing otherwise.
@@ -667,34 +643,12 @@ export default class Prts extends View {
           .child(`ID:${String(spaces().length).padStart(4, "0")}-${String(agents().length).padStart(4, "0")}`)));
   }
 
-  // MISSION ACCOMPLISHED, after the game's: a translucent band opens from the middle, the emblem sits on the left
-  // breaking out of it, and MISSION / ACCOMPLISHED in corner brackets on the right.
+  // 任務完成 banner, after the game's; drawn in overlays.js.
   mission() {
     const p = props();
-    const on = this.phase >= 1, out = this.phase === 2;
-    const mid = Math.round(MISSION_H / 2);
-    const corner = (left, top) => div().absolute().size(26)
-      .when(left, (el) => el.left(0).border_l(3)).when(!left, (el) => el.right(0).border_r(3))
-      .when(top, (el) => el.top(0).border_t(3)).when(!top, (el) => el.bottom(0).border_b(3)).border_color(WHITE);
-    const word = (text, size) => div().font_family(HEAVY).font_extrabold().text_size(size).line_height(1.0).text_color(WHITE).child(text);
-    // The window covers the whole app so the band sits at its vertical centre; a click anywhere dismisses it.
-    return v_flex().id("mission-shade").size_full().justify_center()
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => this.dismiss())
-      .child(div().id("mission").w_full().h(MISSION_H).flex_none().relative().cursor_pointer()
-      .opacity(out ? 0 : 1).transition("opacity", { duration: 450, easing: "ease-in" })
-      .on_click((_e, cx) => { cx.stop_propagation(); if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); })
-      .child(div().absolute().left(0).w_full().bg("#0b0c0ee0").border_t(1).border_b(1).border_color("#ffffff22")
-        .top(on ? mid - BAND_H / 2 : mid).h(on ? BAND_H : 0)
-        .transition("top", { duration: 280, easing: "ease-out" }).transition("height", { duration: 280, easing: "ease-out" }))
-      .child(h_flex().absolute().left(0).top(0).w_full().h(MISSION_H).items_center().justify_center().gap(40)
-        .opacity(on ? 1 : 0).transition("opacity", { duration: 300, delay: 180, easing: "ease-out" })
-        .child(this.emblem(330))
-        .child(div().relative().px(34).py(14)
-          .child(corner(true, true)).child(corner(false, true)).child(corner(true, false)).child(corner(false, false))
-          .child(v_flex().child(word("MISSION", 112)).child(word("ACCOMPLISHED", 78)))))
-      .child(div().absolute().right(28).top(mid + BAND_H / 2 - 24).font_family(MONO).text_size(11).text_color("#ffffff88")
-        .opacity(on ? 1 : 0).transition("opacity", { duration: 300, delay: 400 })
-        .child(`${p.space}${p.title ? " · " + p.title : ""}${p.pane ? " · CLICK TO OPEN" : ""}`)));
+    return missionView({ on: this.phase >= 1, out: this.phase === 2, space: p.space, title: p.title, pane: p.pane,
+      height: MISSION_H, bandH: BAND_H, emblem: (w) => this.emblem(w), ZH, HEAVY, MONO, WHITE,
+      onClick: { dismiss: () => this.dismiss(), focus: (_e, cx) => { cx.stop_propagation(); if (p.pane) run("pane.focus", { pane: p.pane }); this.dismiss(); } } });
   }
 
   render(cx) {
@@ -711,7 +665,7 @@ export default class Prts extends View {
       case "spacer": return div().size_full();
       case "nav": return this.nav();
       case "navpop": return this.navpop();
-      case "curtain": return div().size_full().bg("#05080e").opacity(this.phase === 1 ? 0 : 0.92).transition("opacity", { duration: 380, easing: "ease-out" });
+      case "curtain": return curtainView({ phase: this.phase, tip: this.tip, emblem: (w) => this.emblem(w), ZH, WHITE });
       case "lastop": return this.lastop(cx);
       default: return this.top();
     }
