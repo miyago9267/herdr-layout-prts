@@ -354,7 +354,7 @@ export default class Prts extends View {
   // A slab = darker backing + flat face. Hover slides the face 4px left and exposes more of the backing.
   slab(id, { bg, bgHover, edge, action, body, marks = [], dim = [364, S(112)] }) {
     return div().relative().flex_none()
-      .child(tiltBack(dim))
+      .children([tiltBack(dim)].filter(Boolean))
       .child(div().absolute().left(0).top(0).right(0).bottom(0).bg(edge))
       .child(div().id(id).absolute().left(0).top(0).right(4).bottom(4).overflow_hidden().bg(bg).cursor_pointer()
         .hover((s) => s.bg(bgHover).left(-4).right(8)).on_click(action)
@@ -584,7 +584,7 @@ export default class Prts extends View {
       .child(div().absolute().left(0).right(0).top(NAV_LINE).h(1).bg("#ffffff38"))
       .child(div().absolute().right(24).bottom(10).font_family(MONO).text_size(10).text_color("#ffffff55").child("PRTS // NODE MAP"))
       .child(h_flex().size_full().justify_center().gap(28).children(nodes.map((n) => this.node(n))))
-      .child(this.lastSlab());
+      .children([this.lastSlab()].filter(Boolean));
   }
 
   // Bottom-right of the node map: jump to the most urgent other agent. Nothing when there is none.
