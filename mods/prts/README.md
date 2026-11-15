@@ -10,7 +10,7 @@ Other mod commands usable as `prts.<name>` or `herdr-app do prts.<name>`: `home`
 
 HOME tile -> TERMINAL screen with: 終端 = just the terminal, 編隊 = spaces drawer, 幹員 = agents drawer (grouped), 調度 / 任務 = agents drawer (priority sort),
 基建 = Changes panel, 倉庫 = terminal picker. The drawer (`drawer` node, 340px, left of the terminal) and the right panel (`panel`, Files/Changes, the one the tab bar drives)
-are hidden by default. Icon-bar items toggle the same things; the blue icon = what is open. Back arrow closes the open drawer/panel, else goes HOME.
+are hidden by default. Nav nodes toggle the same things; the blue node = what is open. Back arrow closes the open drawer/panel, else goes HOME.
 Note: 幹員 / 任務 set the shared `agents.sort` (grouped / priority), which the shipped `agents` mod reads too.
 Floating `lastop` ("前往上一次作戰") appears bottom-right only while another agent is blocked or done; click focuses it.
 HOME VOICE card = the most urgent agent (blocked > done > working > idle, newest first): space name + terminal title; dim when no agent exists.

@@ -7,7 +7,7 @@
 //   footer  HOME dim caption line
 //   spacer  empty, lets the art show
 //   nav     TERMINAL 48px top bar: back / house buttons, search / settings; house (or cmd-;) opens navpop
-//   navpop  overlay popup under the bar: stage screen (stage.js: ATTENTION / TO-DO LIST, icon bar 終端 編隊 幹員 基建 任務 首頁)
+//   navpop  overlay popup under the bar: node map (首頁 編隊 幹員 終端 基建 任務) + 前往上一次作戰 slab at the bottom right
 //   lastop  TERMINAL floating card "前往上一次作戰": only while another agent is blocked or done
 // A screen switch shows one layout node and hides the other (nodes `home` / `term`), so terminals and mod copies stay alive.
 // Hard corners, flat fills, no blur shadows: depth is a darker backing slab that a hovered tile slides off.
@@ -17,7 +17,6 @@ import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import * as fs from "fs/promises";
 import { missionView, curtainView } from "./overlays.js";
-import { stage } from "./stage.js";
 import { tiltBack } from "./tilt.js";
 import { appHome, spaces, agents, panes, terminals, theme, run, window, layout, shared, setShared, nextCommand, props, openOverlay, closeOverlay, notify } from "herdr";
 
@@ -130,6 +129,7 @@ const DEPOT = () => run("mod.open", { name: "picker" });
 
 // TERMINAL node-map popup: an overlay opened by the house button / prts.nav, closed by Esc, a click outside, or a node.
 const BAR = 48;
+const NAV_H = 300, NAV_LINE = 152, NODE_W = 150;
 // Closing is animated: the popup sees __prtsNavOut, fades and slides up, then closes itself (Esc closes at once).
 function closeNav() {
   const id = globalThis.__prtsNav;
@@ -145,7 +145,7 @@ function toggleNav() {
   if (now - (globalThis.__prtsNavAt ?? 0) < 300) return;
   globalThis.__prtsNavAt = now;
   if (globalThis.__prtsNav) { closeNav(); return; }
-  globalThis.__prtsNav = openOverlay({ mod: "prts", kind: "window", frame: "none", width: 1, height: 0.955, at: { x: 0, y: BAR }, props: { role: "navpop" } });
+  globalThis.__prtsNav = openOverlay({ mod: "prts", kind: "popup", frame: "none", width: 1, height: NAV_H, at: { x: 0, y: BAR }, props: { role: "navpop" } });
 }
 
 // Boot splash ("connecting to the Terra neural network") and the MISSION ACCOMPLISHED banner.
@@ -243,8 +243,6 @@ export default class Prts extends View {
     }
     if (role === "navpop") {
       this.phase = 0;
-      this.focus = cx.focus_handle();
-      cx.timer.after(60, () => this.focus.focus());
       cx.timer.after(20, (cx) => { this.phase = 1; cx.notify(); });
       cx.timer.every(40, (cx) => {
         const id = props().overlay;
@@ -519,6 +517,34 @@ export default class Prts extends View {
       .child(svg(icon).size(sz > 40 ? 22 : 20));
   }
 
+  // One node of the map, like the game's: a circle on the spine, a dashed stem to an icon + label above or below it.
+  node(n) {
+    const W = NODE_W, L = NAV_LINE;
+    const color = n.current ? WHITE : n.on ? ACCENT : "#d6dbe0";
+    const at = (s) => div().absolute().left(Math.round(W / 2 - s / 2)).top(Math.round(L - s / 2)).size(s);
+    const ring = (s, c) => at(s).rounded_full().border_1().border_color(c);
+    const stem = (top, len) => v_flex().absolute().left(Math.round(W / 2) - 1).top(top).w(2).h(len).gap(5).overflow_hidden()
+      .children(Array.from({ length: Math.ceil(len / 11) }, () => div().w(2).h(6).flex_none().bg("#ffffff70")));
+    const icon = svg(n.icon).size(n.current ? 48 : 42).text_color(color);
+    const label = title(n.zh, n.current ? 28 : 24, color, 0.98);
+    const group = v_flex().absolute().left(0).w(W).items_center().gap(6)
+      .children(n.up ? [icon, label] : [label, icon]);
+    const r = n.current ? 30 : 22;
+    return div().id(`node-${n.zh}`).relative().w(W).h(NAV_H).flex_none().cursor_pointer()
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => { closeNav(); n.act(); })
+      .when(Boolean(n.current), (el) => el
+        .child(ring(170, "#ffffff2c").loop("opacity", { from: 0.5, to: 1, period: 3200 }))
+        .child(ring(104, "#ffffff55")))
+      .child(n.up ? stem(110, L - r - 110) : stem(L + r, 190 - L - r))
+      .child(n.up ? group.top(n.current ? 14 : 24) : group.top(196))
+      .child(at(2 * r).flex().items_center().justify_center().bg("#05080e")
+        .child(n.current
+          ? svg("mods/prts/node-cur.svg").size(2 * r).text_color(WHITE).loop("opacity", { from: 0.65, to: 1, period: 2600 })
+          : svg("mods/prts/node-dot.svg").size(2 * r).text_color(color)))
+      .when(Boolean(n.on), (el) => el.child(ring(2 * r + 18, ACCENT + "88")))
+      .when(Boolean(n.alert), (el) => el.child(diamond(true, Math.round(W / 2 - r - 14), L - r - 12)));
+  }
+
   // TERMINAL top bar: back + house at left, search / settings at right. The node map is the popup (navpop).
   nav() {
     const root = layout();
@@ -536,7 +562,7 @@ export default class Prts extends View {
       .child(this.squareButton("settings", "mods/workspace-chrome/settings.svg", "Settings", () => run("app.settings"), 36));
   }
 
-  // The popup: the stage screen (stage.js) over everything under the bar; the icon bar replaces the old node spine.
+  // The popup: node map 首頁 編隊 幹員 終端 基建 任務, dark translucent like the game's top area.
   navpop() {
     const root = layout();
     const d = find(root, "drawer"), db = find(root, "drawer-body"), p = find(root, "panel"), pb = find(root, "panel-body");
@@ -544,15 +570,36 @@ export default class Prts extends View {
     const sort = shared("agents.sort");
     const alert = agents().some((a) => a.status === "blocked" || a.status === "done");
     const nodes = [
-      { zh: "終端", icon: "mods/prts/diamond.svg", current: true, act: () => { closeSide(); startHere(); } },
-      { zh: "編隊", icon: "mods/prts/icon-squads.svg", on: open === "d-spaces", act: SQUADS },
-      { zh: "幹員", icon: "mods/prts/icon-ops.svg", on: open === "d-agents" && sort === "grouped", alert, act: ROSTER },
-      { zh: "基建", icon: "mods/prts/icon-base.svg", on: Boolean(p && !p.hidden && pb?.active === "changes"), act: BASE },
-      { zh: "任務", icon: "mods/prts/icon-maze.svg", on: open === "d-agents" && sort !== "grouped", act: MISSIONS },
       { zh: "首頁", icon: "mods/prts/home.svg", act: () => go("home") },
+      { zh: "編隊", icon: "mods/prts/icon-squads.svg", up: true, on: open === "d-spaces", act: SQUADS },
+      { zh: "幹員", icon: "mods/prts/icon-ops.svg", on: open === "d-agents" && sort === "grouped", alert, act: ROSTER },
+      { zh: "終端", icon: "mods/prts/diamond.svg", up: true, current: true, act: () => { closeSide(); startHere(); } },
+      { zh: "基建", icon: "mods/prts/icon-base.svg", up: true, on: Boolean(p && !p.hidden && pb?.active === "changes"), act: BASE },
+      { zh: "任務", icon: "mods/prts/icon-maze.svg", on: open === "d-agents" && sort !== "grouped", act: MISSIONS },
     ];
-    const pick = (a) => { run("space.select", { id: a.space }); run("pane.focus", { pane: a.pane }); };
-    return stage({ on: this.phase === 1, nodes, close: closeNav, pick, focus: this.focus });
+    const on = this.phase === 1;
+    return div().size_full().relative().bg("#05080eeb").border_b(1).border_color("#ffffff40")
+      .opacity(on ? 1 : 0).transition("opacity", { duration: on ? 220 : 180, easing: "ease-out" })
+      .child(div().absolute().left(0).right(0).top(NAV_LINE - 18).h(36).bg("#ffffff0a").border_t(1).border_b(1).border_color("#ffffff14"))
+      .child(div().absolute().left(0).right(0).top(NAV_LINE).h(1).bg("#ffffff38"))
+      .child(div().absolute().right(24).bottom(10).font_family(MONO).text_size(10).text_color("#ffffff55").child("PRTS // NODE MAP"))
+      .child(h_flex().size_full().justify_center().gap(28).children(nodes.map((n) => this.node(n))))
+      .child(this.lastSlab());
+  }
+
+  // Bottom-right of the node map: jump to the most urgent other agent. Nothing when there is none.
+  lastSlab() {
+    const a = topAgent(agents().filter((x) => x.status === "blocked" || x.status === "done"), true);
+    if (!a) return null;
+    const hot = a.status === "blocked";
+    return v_flex().id("nav-last").absolute().right(24).bottom(30).w(230).cursor_pointer()
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => { closeNav(); run("pane.focus", { pane: a.pane }); })
+      .child(h_flex().h(22).px(10).items_center().gap(6).bg(INK)
+        .child(svg("mods/prts/diamond.svg").size(9).text_color(hot ? RED : GREEN).loop("opacity", { from: 0.35, to: 1, period: hot ? 900 : 2400 }))
+        .child(div().font_family(ZH).text_size(12).text_color("#ffffffdd").child("前往上一次作戰")))
+      .child(h_flex().h(46).px(10).items_center().gap(8).bg(PAPER).hover((s) => s.bg(PAPER_HOVER))
+        .child(div().flex_1().min_w(0).font_family(ZH).text_size(16).text_color(INK).truncate().child(a.space_name || a.tab_name || "-"))
+        .child(div().flex_none().font_family(ZH).text_size(12).text_color(hot ? RED : "#2e8b46").child(hot ? "需介入" : "已完成")));
   }
 
   // 前往上一次作戰: shown only while some other agent is blocked or done. Renders nothing otherwise.
@@ -622,7 +669,8 @@ export default class Prts extends View {
         .child(div().absolute().left(0).top(8).h(2).w(on ? 3000 : 0).bg("#e8c21a").transition("width", { duration: 3000, easing: "ease-in-out" }))
         .child(div().absolute().right(10).top(-4).font_family(MONO).text_size(11).text_color("#e8c21a").child(`${this.pct}%`)))
       .child(div().w(460).flex_none())
-      .child(div().flex_1());
+      .child(div().relative().flex_1().h(18).overflow_hidden()
+        .child(div().absolute().right(0).top(8).h(2).w(on ? 3000 : 0).bg("#e8c21a").transition("width", { duration: 3000, easing: "ease-in-out" })));
     const dots = v_flex().gap(36).children([0, 1, 2, 3].map(() => h_flex().gap(36).children([0, 1, 2, 3, 4].map(() => div().size(3).bg("#ffffff55")))));
     const mark = fade(v_flex().absolute().left(0).top(0).size_full().items_center().justify_center(), two, 600)
       .child(div().absolute().left(0).top(0).size_full().flex().items_center()
