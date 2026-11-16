@@ -583,23 +583,7 @@ export default class Prts extends View {
       .child(div().absolute().left(0).right(0).top(NAV_LINE - 18).h(36).bg("#ffffff0a").border_t(1).border_b(1).border_color("#ffffff14"))
       .child(div().absolute().left(0).right(0).top(NAV_LINE).h(1).bg("#ffffff38"))
       .child(div().absolute().right(24).bottom(10).font_family(MONO).text_size(10).text_color("#ffffff55").child("PRTS // NODE MAP"))
-      .child(h_flex().size_full().justify_center().gap(28).children(nodes.map((n) => this.node(n))))
-      .children([this.lastSlab()].filter(Boolean));
-  }
-
-  // Bottom-right of the node map: jump to the most urgent other agent. Nothing when there is none.
-  lastSlab() {
-    const a = topAgent(agents().filter((x) => x.status === "blocked" || x.status === "done"), true);
-    if (!a) return null;
-    const hot = a.status === "blocked";
-    return v_flex().id("nav-last").absolute().right(24).bottom(30).w(230).cursor_pointer()
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(() => { closeNav(); run("pane.focus", { pane: a.pane }); })
-      .child(h_flex().h(22).px(10).items_center().gap(6).bg(INK)
-        .child(svg("mods/prts/diamond.svg").size(9).text_color(hot ? RED : GREEN).loop("opacity", { from: 0.35, to: 1, period: hot ? 900 : 2400 }))
-        .child(div().font_family(ZH).text_size(12).text_color("#ffffffdd").child("前往上一次作戰")))
-      .child(h_flex().h(46).px(10).items_center().gap(8).bg(PAPER).hover((s) => s.bg(PAPER_HOVER))
-        .child(div().flex_1().min_w(0).font_family(ZH).text_size(16).text_color(INK).truncate().child(a.space_name || a.tab_name || "-"))
-        .child(div().flex_none().font_family(ZH).text_size(12).text_color(hot ? RED : "#2e8b46").child(hot ? "需介入" : "已完成")));
+      .child(h_flex().size_full().justify_center().gap(28).children(nodes.map((n) => this.node(n))));
   }
 
   // 前往上一次作戰: shown only while some other agent is blocked or done. Renders nothing otherwise.
